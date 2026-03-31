@@ -8,13 +8,13 @@
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <style>
         body {
-            background-color: #f0fdfa; /* Teinte aqua très claire */
+            background-color: #f0fdfa;
             font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
         }
         canvas#simCanvas {
-            background: linear-gradient(to bottom, #87CEEB 0%, #e0f6ff 70%, #ffffff 100%);
             box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
             border-radius: 0.5rem;
+            background-color: #000; /* Sera recouvert par les dessins dynamiques */
         }
         .slider-thumb::-webkit-slider-thumb {
             -webkit-appearance: none;
@@ -36,7 +36,7 @@
             <div class="bg-white p-6 rounded-xl shadow-lg border border-slate-100">
                 <h1 class="text-2xl font-bold text-slate-800 mb-2">Chute libre vs Projectile</h1>
                 <p class="text-sm text-slate-600 mb-6">
-                    Deux objets sont soumis à la même gravité. Arriveront-ils en même temps malgré l'élan horizontal ?
+                    L'ami bleu prend de l'élan, l'ami rouge se laisse tomber. Arriveront-ils en même temps en bas ?
                 </p>
 
                 <div class="space-y-4">
@@ -51,20 +51,20 @@
                     <!-- Gravité (Planètes) -->
                     <div>
                         <label class="block text-sm font-semibold text-slate-700 mb-1">
-                            Astre (Gravité) :
+                            Astre / Décor :
                         </label>
                         <select id="planetSelect" class="w-full p-2 border border-slate-300 rounded-lg text-sm focus:ring-sky-500 focus:border-sky-500">
-                            <option value="9.81">🌍 Terre (9.81 m/s²)</option>
-                            <option value="1.62">🌕 Lune (1.62 m/s²)</option>
-                            <option value="3.71">🔴 Mars (3.71 m/s²)</option>
-                            <option value="24.79">🪐 Jupiter (24.79 m/s²)</option>
+                            <option value="earth" data-g="9.81">🌍 Terre (9.81 m/s²)</option>
+                            <option value="moon" data-g="1.62">🌕 Lune (1.62 m/s²)</option>
+                            <option value="mars" data-g="3.71">🔴 Mars (3.71 m/s²)</option>
+                            <option value="jupiter" data-g="24.79">🪐 Jupiter (24.79 m/s²)</option>
                         </select>
                     </div>
 
                     <!-- Vitesse Ami 1 -->
                     <div>
                         <label class="block text-sm font-semibold text-slate-700 mb-1">
-                            Vitesse horizontale (Bleu) : <span id="speedValue" class="text-sky-600">5.0</span> m/s
+                            Vitesse de course (Bleu) : <span id="speedValue" class="text-sky-600">5.0</span> m/s
                         </label>
                         <input type="range" id="speedSlider" min="1" max="15" step="0.5" value="5" class="w-full h-2 bg-slate-200 rounded-lg appearance-none cursor-pointer slider-thumb">
                     </div>
@@ -90,10 +90,10 @@
 
             <!-- Statistiques en temps réel -->
             <div class="bg-white p-6 rounded-xl shadow-lg border border-slate-100">
-                <h2 class="text-lg font-bold text-slate-800 mb-4 border-b pb-2">Données en temps réel</h2>
+                <h2 class="text-lg font-bold text-slate-800 mb-4 border-b pb-2">Temps de chute</h2>
                 <div class="grid grid-cols-2 gap-4 text-center">
                     <div class="bg-slate-50 p-3 rounded-lg border border-slate-100">
-                        <div class="text-xs text-slate-500 font-semibold uppercase">Temps écoulé</div>
+                        <div class="text-xs text-slate-500 font-semibold uppercase">T. écoulé</div>
                         <div class="text-2xl font-bold text-slate-800" id="timeDisplay">0.00 s</div>
                     </div>
                     <div class="bg-slate-50 p-3 rounded-lg border border-slate-100">
@@ -119,9 +119,9 @@
             <canvas id="simCanvas" width="800" height="600" class="w-full h-full object-cover"></canvas>
             
             <div id="conclusionMessage" class="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 bg-white/95 backdrop-blur px-8 py-6 rounded-2xl shadow-2xl text-center hidden border border-slate-200">
-                <h2 class="text-3xl font-bold text-sky-600 mb-2">Plouf ! 🌊</h2>
-                <p class="text-lg text-slate-700 font-medium">Ils touchent l'eau au même moment !</p>
-                <p class="text-md text-slate-500 mt-2">Temps de chute : <span id="finalTime" class="font-bold text-slate-800"></span> secondes</p>
+                <h2 id="impactTitle" class="text-3xl font-bold text-sky-600 mb-2">Impact !</h2>
+                <p class="text-lg text-slate-700 font-medium">Ils touchent le fond au même moment !</p>
+                <p class="text-md text-slate-500 mt-2">Temps de chute : <span id="finalTime" class="font-bold text-slate-800"></span> s</p>
                 <button onclick="resetSim()" class="mt-6 bg-slate-800 text-white px-6 py-2 rounded-lg font-medium hover:bg-slate-700 transition">Essayer d'autres réglages</button>
             </div>
         </div>
@@ -145,28 +145,32 @@
         const canvas = document.getElementById('simCanvas');
         const ctx = canvas.getContext('2d');
 
-        // Constantes et Variables physiques (maintenant modifiables)
+        // Constantes et Variables physiques
+        let currentPlanet = 'earth';
         let G = 9.81; // m/s^2 (Gravité)
         let START_HEIGHT = 10; // mètres
         let SCALE = 45; // pixels par mètre (calculé dynamiquement)
-        const GROUND_Y = 500; // Position Y de l'eau sur le canvas
-        const CLIFF_X = 80; // Position X du bord de la falaise
+        const GROUND_Y = 500; // Position Y du sol sur le canvas
+        const CLIFF_X = 180; // Position X du bord de la falaise
+        const RUN_DIST_PX = 120; // Distance de course avant de sauter (en pixels)
 
         // Variables d'état
-        let time = 0;
+        let simPhase = 'ready'; // 'ready', 'running', 'falling', 'finished'
+        let time = 0; // Temps de chute (physique)
+        let runTimer = 0; // Temps pour l'animation de course
         let isRunning = false;
-        let isFinished = false;
         let lastTimestamp = 0;
         let splashTime = 0;
         let chartUpdateTimer = 0;
+        let stars = Array.from({length: 100}, () => ({x: Math.random()*800, y: Math.random()*600, r: Math.random()*1.5})); // Pour la Lune
 
         // Paramètres configurables
         let initialVx = 5.0; // Vitesse de l'ami 1
         let timeScale = 0.5; // Vitesse de la simulation
 
         // Positions et traces
-        let friend1 = { x: 0, y: START_HEIGHT, px: CLIFF_X, py: GROUND_Y - START_HEIGHT * SCALE, color: '#3b82f6' };
-        let friend2 = { x: 0, y: START_HEIGHT, px: CLIFF_X, py: GROUND_Y - START_HEIGHT * SCALE, color: '#ef4444' };
+        let friend1 = { x: 0, y: START_HEIGHT, px: CLIFF_X - RUN_DIST_PX, py: GROUND_Y - START_HEIGHT * SCALE, color: '#3b82f6' };
+        let friend2 = { x: 0, y: START_HEIGHT, px: CLIFF_X - 15, py: GROUND_Y - START_HEIGHT * SCALE, color: '#ef4444' };
         let trail1 = [];
         let trail2 = [];
 
@@ -183,6 +187,7 @@
         const startBtn = document.getElementById('startBtn');
         const resetBtn = document.getElementById('resetBtn');
         const conclusionMessage = document.getElementById('conclusionMessage');
+        const impactTitle = document.getElementById('impactTitle');
         const finalTime = document.getElementById('finalTime');
 
         // --- Configuration des Graphiques (Chart.js) ---
@@ -190,13 +195,13 @@
         const chartOptions = {
             responsive: true,
             maintainAspectRatio: false,
-            animation: false, // Désactiver les animations pour le temps réel
+            animation: false,
             plugins: { legend: { display: false } },
             scales: {
                 x: { title: { display: true, text: 'Temps (s)' }, grid: { display: false } },
                 y: { beginAtZero: true }
             },
-            elements: { point: { radius: 0 } } // Cacher les points pour une ligne fluide
+            elements: { point: { radius: 0 } }
         };
 
         const distChart = new Chart(document.getElementById('distChart').getContext('2d'), {
@@ -221,7 +226,7 @@
         speedSlider.addEventListener('input', (e) => {
             initialVx = parseFloat(e.target.value);
             speedValue.textContent = initialVx.toFixed(1);
-            if (!isRunning && time === 0) draw();
+            if (!isRunning && simPhase === 'ready') draw();
         });
 
         timeScaleSlider.addEventListener('input', (e) => {
@@ -236,7 +241,9 @@
         });
 
         planetSelect.addEventListener('change', (e) => {
-            G = parseFloat(e.target.value);
+            currentPlanet = e.target.value;
+            const selectedOption = e.target.options[e.target.selectedIndex];
+            G = parseFloat(selectedOption.dataset.g);
             resetSim();
         });
 
@@ -244,10 +251,12 @@
         resetBtn.addEventListener('click', resetSim);
 
         function toggleSim() {
-            if (isFinished) resetSim();
+            if (simPhase === 'finished') resetSim();
             
             if (!isRunning) {
                 isRunning = true;
+                if(simPhase === 'ready') simPhase = 'running';
+                
                 startBtn.textContent = "Pause";
                 startBtn.classList.replace('bg-sky-500', 'bg-amber-500');
                 startBtn.classList.replace('hover:bg-sky-600', 'hover:bg-amber-600');
@@ -273,54 +282,45 @@
         function updateChartsData(currentTime, distance, velocity, acceleration, forceUpdate = false) {
             chartUpdateTimer += (currentTime - (chartUpdateTimer === 0 ? 0 : chartUpdateTimer));
             
-            // On met à jour toutes les 0.05 secondes simulées pour éviter de surcharger
             if (chartUpdateTimer >= 0.05 || forceUpdate) {
                 const timeLabel = currentTime.toFixed(2);
-                
-                distChart.data.labels.push(timeLabel);
-                distChart.data.datasets[0].data.push(distance);
-                
-                velChart.data.labels.push(timeLabel);
-                velChart.data.datasets[0].data.push(velocity);
-                
-                accChart.data.labels.push(timeLabel);
-                accChart.data.datasets[0].data.push(acceleration);
+                distChart.data.labels.push(timeLabel); distChart.data.datasets[0].data.push(distance);
+                velChart.data.labels.push(timeLabel); velChart.data.datasets[0].data.push(velocity);
+                accChart.data.labels.push(timeLabel); accChart.data.datasets[0].data.push(acceleration);
 
-                distChart.update();
-                velChart.update();
-                accChart.update();
-                
+                distChart.update(); velChart.update(); accChart.update();
                 chartUpdateTimer = 0;
             }
         }
 
         function resetSim() {
             isRunning = false;
-            isFinished = false;
+            simPhase = 'ready';
             time = 0;
+            runTimer = 0;
             splashTime = 0;
             trail1 = [];
             trail2 = [];
             
-            // Calculer la nouvelle échelle visuelle (laisser 50px de marge en haut)
-            SCALE = (GROUND_Y - 50) / START_HEIGHT;
+            SCALE = (GROUND_Y - 80) / START_HEIGHT; // Laisser 80px de marge en haut
             
             friend1.x = 0; friend1.y = START_HEIGHT;
-            friend2.x = 0; friend2.y = START_HEIGHT;
+            friend1.px = CLIFF_X - RUN_DIST_PX; 
+            friend1.py = GROUND_Y - START_HEIGHT * SCALE;
             
-            updateCanvasPositions();
+            friend2.x = 0; friend2.y = START_HEIGHT;
+            friend2.px = CLIFF_X - 15;
+            friend2.py = GROUND_Y - START_HEIGHT * SCALE;
+            
             resetCharts();
+            updateUI();
 
             startBtn.textContent = "Démarrer";
             startBtn.classList.replace('bg-amber-500', 'bg-sky-500');
             startBtn.classList.replace('hover:bg-amber-600', 'hover:bg-sky-600');
             conclusionMessage.classList.add('hidden');
             
-            updateUI();
             draw();
-            
-            // Initier le point 0 sur les graphiques
-            updateChartsData(0, 0, 0, G, true);
         }
 
         // --- Moteur Physique et Boucle ---
@@ -329,78 +329,97 @@
 
             let dt = (timestamp - lastTimestamp) / 1000;
             lastTimestamp = timestamp;
-
             let simDt = dt * timeScale;
-            time += simDt;
 
-            // Equations du mouvement vertical
-            // Distance = 0.5 * g * t^2
-            let distFallen = 0.5 * G * time * time;
-            let currentY = START_HEIGHT - distFallen;
-            
-            // Vitesse et accélération
-            let vy = G * time;
-            let ay = G;
-            
-            if (currentY <= 0) {
-                currentY = 0;
-                distFallen = START_HEIGHT;
-                isRunning = false;
-                isFinished = true;
+            if (simPhase === 'running') {
+                runTimer += simDt * 2; // Accélérer visuellement l'animation de course
+                // L'ami 1 court vers le bord
+                let pxSpeed = initialVx * SCALE;
+                friend1.px += pxSpeed * simDt;
                 
-                // Temps exact t = sqrt(2h/g)
-                time = Math.sqrt((2 * START_HEIGHT) / G);
-                vy = G * time;
+                if (friend1.px >= CLIFF_X) {
+                    friend1.px = CLIFF_X;
+                    simPhase = 'falling';
+                    time = 0; // Début officiel de la chute physique
+                    updateChartsData(0, 0, 0, G, true);
+                }
+            } else if (simPhase === 'falling') {
+                time += simDt;
+
+                let distFallen = 0.5 * G * time * time;
+                let currentY = START_HEIGHT - distFallen;
+                let vy = G * time;
+                let ay = G;
                 
-                // Mise à jour finale des graphiques
-                updateChartsData(time, distFallen, vy, ay, true);
-                showConclusion();
-            } else {
-                updateChartsData(time, distFallen, vy, ay, false);
+                if (currentY <= 0) {
+                    currentY = 0;
+                    distFallen = START_HEIGHT;
+                    isRunning = false;
+                    simPhase = 'finished';
+                    
+                    time = Math.sqrt((2 * START_HEIGHT) / G);
+                    vy = G * time;
+                    
+                    updateChartsData(time, distFallen, vy, ay, true);
+                    showConclusion();
+                } else {
+                    updateChartsData(time, distFallen, vy, ay, false);
+                }
+
+                friend1.y = currentY;
+                friend2.y = currentY;
+                
+                friend1.x = initialVx * time;
+                friend2.x = 0;
+
+                updateCanvasPositionsForFalling();
+                updateUI();
             }
 
-            friend1.y = currentY;
-            friend2.y = currentY;
-            
-            friend1.x = initialVx * time;
-            friend2.x = 0;
-
-            updateCanvasPositions();
-            updateUI();
             draw();
 
             if (isRunning) {
                 requestAnimationFrame(loop);
-            } else if (isFinished) {
+            } else if (simPhase === 'finished') {
                 splashTime = 0;
                 requestAnimationFrame(drawSplash);
             }
         }
 
-        function updateCanvasPositions() {
+        function updateCanvasPositionsForFalling() {
             friend1.px = CLIFF_X + friend1.x * SCALE;
             friend1.py = GROUND_Y - friend1.y * SCALE;
             
-            friend2.px = CLIFF_X + friend2.x * SCALE;
+            // L'ami 2 se déplace légèrement en X pendant la chute juste pour rester au bord (il était à CLIFF_X - 15)
+            // On le fait tomber tout droit depuis CLIFF_X
+            friend2.px = CLIFF_X;
             friend2.py = GROUND_Y - friend2.y * SCALE;
 
-            if (time > 0 && friend1.y >= 0 && !isFinished) {
+            if (friend1.y >= 0 && simPhase === 'falling') {
                 trail1.push({x: friend1.px, y: friend1.py});
                 trail2.push({x: friend2.px, y: friend2.py});
             }
         }
 
         function updateUI() {
-            timeDisplay.textContent = time.toFixed(2) + " s";
+            timeDisplay.textContent = (simPhase === 'ready' || simPhase === 'running') ? "0.00 s" : time.toFixed(2) + " s";
             heightDisplay.textContent = Math.max(0, friend1.y).toFixed(2) + " m";
         }
 
         function showConclusion() {
             startBtn.textContent = "Terminé";
             finalTime.textContent = time.toFixed(2);
+            
+            switch(currentPlanet) {
+                case 'earth': impactTitle.innerHTML = "Plouf ! 🌊"; impactTitle.className = "text-3xl font-bold text-sky-600 mb-2"; break;
+                case 'moon': impactTitle.innerHTML = "Pouf ! 🌑"; impactTitle.className = "text-3xl font-bold text-zinc-500 mb-2"; break;
+                case 'mars': impactTitle.innerHTML = "Bam ! 🔴"; impactTitle.className = "text-3xl font-bold text-red-600 mb-2"; break;
+                case 'jupiter': impactTitle.innerHTML = "Fshhh ! 🪐"; impactTitle.className = "text-3xl font-bold text-amber-700 mb-2"; break;
+            }
+
             setTimeout(() => {
                 conclusionMessage.classList.remove('hidden');
-            }, 500);
+            }, 300);
         }
 
         // --- Rendu Graphique (Canvas) ---
@@ -412,61 +431,90 @@
         }
 
         function drawEnvironment() {
-            ctx.fillStyle = 'rgba(255, 255, 255, 0.7)';
-            ctx.beginPath(); ctx.arc(200, 100, 30, 0, Math.PI*2); ctx.arc(240, 90, 40, 0, Math.PI*2); ctx.arc(280, 100, 30, 0, Math.PI*2); ctx.fill();
-            ctx.beginPath(); ctx.arc(600, 150, 20, 0, Math.PI*2); ctx.arc(630, 140, 30, 0, Math.PI*2); ctx.arc(660, 150, 20, 0, Math.PI*2); ctx.fill();
+            const cliffY = GROUND_Y - (START_HEIGHT * SCALE);
+            
+            switch(currentPlanet) {
+                case 'earth':
+                    // Ciel
+                    let earthSky = ctx.createLinearGradient(0, 0, 0, canvas.height);
+                    earthSky.addColorStop(0, '#87CEEB'); earthSky.addColorStop(1, '#e0f6ff');
+                    ctx.fillStyle = earthSky; ctx.fillRect(0, 0, canvas.width, canvas.height);
+                    // Nuages
+                    ctx.fillStyle = 'rgba(255, 255, 255, 0.8)';
+                    ctx.beginPath(); ctx.arc(200, 100, 30, 0, Math.PI*2); ctx.arc(240, 90, 40, 0, Math.PI*2); ctx.arc(280, 100, 30, 0, Math.PI*2); ctx.fill();
+                    ctx.beginPath(); ctx.arc(600, 150, 20, 0, Math.PI*2); ctx.arc(630, 140, 30, 0, Math.PI*2); ctx.arc(660, 150, 20, 0, Math.PI*2); ctx.fill();
+                    // Falaise
+                    ctx.fillStyle = '#78716c'; ctx.fillRect(0, cliffY, CLIFF_X, canvas.height - cliffY);
+                    // Herbe
+                    ctx.fillStyle = '#4ade80'; ctx.fillRect(0, cliffY, CLIFF_X, 12);
+                    // Eau
+                    ctx.fillStyle = 'rgba(14, 165, 233, 0.7)'; ctx.fillRect(0, GROUND_Y, canvas.width, canvas.height - GROUND_Y);
+                    ctx.strokeStyle = 'rgba(255,255,255,0.4)'; ctx.beginPath(); ctx.moveTo(0, GROUND_Y); ctx.lineTo(canvas.width, GROUND_Y); ctx.stroke();
+                    break;
+                    
+                case 'moon':
+                    // Espace profond
+                    ctx.fillStyle = '#0a0a0a'; ctx.fillRect(0, 0, canvas.width, canvas.height);
+                    // Etoiles
+                    ctx.fillStyle = '#ffffff';
+                    stars.forEach(s => { ctx.beginPath(); ctx.arc(s.x, s.y, s.r, 0, Math.PI*2); ctx.fill(); });
+                    // Falaise cratérisée
+                    ctx.fillStyle = '#d4d4d8'; ctx.fillRect(0, cliffY, CLIFF_X, canvas.height - cliffY);
+                    // Sol sombre (poussière)
+                    ctx.fillStyle = '#3f3f46'; ctx.fillRect(0, GROUND_Y, canvas.width, canvas.height - GROUND_Y);
+                    ctx.fillStyle = '#27272a'; ctx.beginPath(); ctx.ellipse(400, GROUND_Y + 30, 100, 15, 0, 0, Math.PI*2); ctx.fill();
+                    break;
+                    
+                case 'mars':
+                    // Ciel martien
+                    let marsSky = ctx.createLinearGradient(0, 0, 0, GROUND_Y);
+                    marsSky.addColorStop(0, '#fca5a5'); marsSky.addColorStop(1, '#fcd34d');
+                    ctx.fillStyle = marsSky; ctx.fillRect(0, 0, canvas.width, canvas.height);
+                    // Falaise rocheuse rouge
+                    ctx.fillStyle = '#b91c1c'; ctx.fillRect(0, cliffY, CLIFF_X, canvas.height - cliffY);
+                    ctx.fillStyle = '#991b1b'; ctx.fillRect(0, cliffY, CLIFF_X, 8); // Bord
+                    // Sol de sable martien
+                    ctx.fillStyle = '#7f1d1d'; ctx.fillRect(0, GROUND_Y, canvas.width, canvas.height - GROUND_Y);
+                    break;
 
-            // Grille de mesure adaptative
-            ctx.strokeStyle = 'rgba(0,0,0,0.05)';
-            ctx.fillStyle = 'rgba(0,0,0,0.3)';
-            ctx.font = '10px sans-serif';
-            ctx.lineWidth = 1;
-            
-            // Si la hauteur est grande, on espace les lignes de 5 ou 10m
-            let gridStep = START_HEIGHT > 25 ? 5 : (START_HEIGHT > 10 ? 2 : 1);
-            
-            for (let i = 0; i <= Math.ceil(START_HEIGHT); i += gridStep) {
-                let yPos = GROUND_Y - (i * SCALE);
-                ctx.beginPath();
-                ctx.moveTo(CLIFF_X, yPos);
-                ctx.lineTo(canvas.width, yPos);
-                ctx.stroke();
-                
-                if(i > 0) ctx.fillText(i + "m", CLIFF_X + 5, yPos - 5);
+                case 'jupiter':
+                    // Couches de gaz
+                    let jupSky = ctx.createLinearGradient(0, 0, 0, GROUND_Y);
+                    jupSky.addColorStop(0, '#fde68a'); jupSky.addColorStop(0.3, '#d97706'); 
+                    jupSky.addColorStop(0.6, '#fef3c7'); jupSky.addColorStop(1, '#b45309');
+                    ctx.fillStyle = jupSky; ctx.fillRect(0, 0, canvas.width, canvas.height);
+                    // Falaise faite de nuages très denses
+                    ctx.fillStyle = '#92400e'; 
+                    ctx.beginPath(); ctx.moveTo(0, canvas.height); ctx.lineTo(0, cliffY); 
+                    ctx.quadraticCurveTo(CLIFF_X/2, cliffY-20, CLIFF_X, cliffY); 
+                    ctx.lineTo(CLIFF_X, canvas.height); ctx.fill();
+                    // "Sol" (couche profonde)
+                    ctx.fillStyle = '#78350f'; ctx.fillRect(0, GROUND_Y, canvas.width, canvas.height - GROUND_Y);
+                    // Brouillard gazeux
+                    ctx.fillStyle = 'rgba(251, 191, 36, 0.2)'; ctx.fillRect(0, GROUND_Y-40, canvas.width, 40);
+                    break;
             }
 
-            // La falaise
-            const cliffY = GROUND_Y - (START_HEIGHT * SCALE);
-            ctx.fillStyle = '#78716c';
-            ctx.beginPath();
-            ctx.moveTo(0, canvas.height);
-            ctx.lineTo(0, cliffY);
-            ctx.lineTo(CLIFF_X, cliffY);
-            ctx.lineTo(CLIFF_X, canvas.height);
-            ctx.fill();
-
-            // Herbe
-            ctx.fillStyle = '#4ade80';
-            ctx.fillRect(0, cliffY, CLIFF_X, 10);
-
-            // Eau
-            ctx.fillStyle = 'rgba(14, 165, 233, 0.6)';
-            ctx.fillRect(0, GROUND_Y, canvas.width, canvas.height - GROUND_Y);
-
-            ctx.strokeStyle = 'rgba(255,255,255,0.5)';
-            ctx.lineWidth = 2;
-            ctx.beginPath();
-            ctx.moveTo(0, GROUND_Y);
-            ctx.lineTo(canvas.width, GROUND_Y);
-            ctx.stroke();
+            // Grille de mesure adaptative (toujours visible)
+            ctx.strokeStyle = (currentPlanet === 'moon' || currentPlanet === 'jupiter') ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.05)';
+            ctx.fillStyle = (currentPlanet === 'moon' || currentPlanet === 'jupiter') ? 'rgba(255,255,255,0.4)' : 'rgba(0,0,0,0.4)';
+            ctx.font = '11px sans-serif';
+            ctx.lineWidth = 1;
+            
+            let gridStep = START_HEIGHT > 25 ? 5 : (START_HEIGHT > 10 ? 2 : 1);
+            for (let i = 0; i <= Math.ceil(START_HEIGHT); i += gridStep) {
+                let yPos = GROUND_Y - (i * SCALE);
+                ctx.beginPath(); ctx.moveTo(CLIFF_X, yPos); ctx.lineTo(canvas.width, yPos); ctx.stroke();
+                if(i > 0) ctx.fillText(i + "m", CLIFF_X + 10, yPos - 5);
+            }
         }
 
         function drawTrails() {
             ctx.lineWidth = 2;
-            ctx.setLineDash([5, 5]);
+            ctx.setLineDash([4, 6]);
 
             if (trail1.length > 0) {
-                ctx.strokeStyle = 'rgba(59, 130, 246, 0.5)';
+                ctx.strokeStyle = 'rgba(59, 130, 246, 0.6)';
                 ctx.beginPath();
                 ctx.moveTo(CLIFF_X, GROUND_Y - START_HEIGHT * SCALE);
                 trail1.forEach(p => ctx.lineTo(p.x, p.y));
@@ -474,57 +522,93 @@
             }
 
             if (trail2.length > 0) {
-                ctx.strokeStyle = 'rgba(239, 68, 68, 0.5)';
+                ctx.strokeStyle = 'rgba(239, 68, 68, 0.6)';
                 ctx.beginPath();
-                ctx.moveTo(CLIFF_X - 10, GROUND_Y - START_HEIGHT * SCALE);
-                trail2.forEach(p => ctx.lineTo(p.x - 10, p.y));
+                ctx.moveTo(CLIFF_X, GROUND_Y - START_HEIGHT * SCALE);
+                trail2.forEach(p => ctx.lineTo(p.x, p.y));
                 ctx.stroke();
             }
-
             ctx.setLineDash([]);
         }
 
+        // Fonction générique pour dessiner un "Stickman" animé
+        function drawStickman(x, y, color, state, animTime) {
+            ctx.save();
+            ctx.translate(x, y);
+            ctx.strokeStyle = color;
+            ctx.lineWidth = 3;
+            ctx.lineCap = 'round';
+            ctx.lineJoin = 'round';
+
+            // Tête
+            ctx.beginPath(); ctx.arc(0, -22, 5, 0, Math.PI * 2); 
+            ctx.fillStyle = (currentPlanet === 'moon') ? '#fff' : color; // Casque blanc sur la lune ?
+            if(currentPlanet === 'moon') { ctx.fill(); ctx.stroke(); } else { ctx.fillStyle = color; ctx.fill(); }
+
+            // Corps
+            ctx.beginPath(); ctx.moveTo(0, -17); ctx.lineTo(0, -7); ctx.stroke();
+
+            if (state === 'run') {
+                // Animation de course (cycle basé sur le temps)
+                let cycle = Math.sin(animTime * 15);
+                // Jambes
+                ctx.beginPath(); ctx.moveTo(0, -7); ctx.lineTo(-6 * cycle, 3); ctx.stroke();
+                ctx.beginPath(); ctx.moveTo(0, -7); ctx.lineTo(6 * cycle, 3); ctx.stroke();
+                // Bras
+                ctx.beginPath(); ctx.moveTo(0, -14); ctx.lineTo(7 * cycle, -8); ctx.stroke();
+                ctx.beginPath(); ctx.moveTo(0, -14); ctx.lineTo(-7 * cycle, -8); ctx.stroke();
+            } else if (state === 'fall') {
+                // Chute libre (bras en l'air, jambes écartées)
+                // Jambes
+                ctx.beginPath(); ctx.moveTo(0, -7); ctx.lineTo(-5, 2); ctx.stroke();
+                ctx.beginPath(); ctx.moveTo(0, -7); ctx.lineTo(5, 2); ctx.stroke();
+                // Bras
+                ctx.beginPath(); ctx.moveTo(0, -14); ctx.lineTo(-8, -20); ctx.stroke();
+                ctx.beginPath(); ctx.moveTo(0, -14); ctx.lineTo(8, -20); ctx.stroke();
+            } else {
+                // Attente debout
+                ctx.beginPath(); ctx.moveTo(0, -7); ctx.lineTo(-3, 3); ctx.stroke();
+                ctx.beginPath(); ctx.moveTo(0, -7); ctx.lineTo(3, 3); ctx.stroke();
+                ctx.beginPath(); ctx.moveTo(0, -14); ctx.lineTo(-4, -6); ctx.stroke();
+                ctx.beginPath(); ctx.moveTo(0, -14); ctx.lineTo(4, -6); ctx.stroke();
+            }
+            ctx.restore();
+        }
+
         function drawCharacters() {
-            const radius = 8;
+            // Ami 2 (Rouge) : Attend au bord, puis tombe
+            let state2 = (simPhase === 'falling') ? 'fall' : 'stand';
+            drawStickman(friend2.px, friend2.py, friend2.color, state2, 0);
 
-            ctx.fillStyle = friend2.color;
-            ctx.beginPath();
-            ctx.arc(friend2.px - 10, friend2.py, radius, 0, Math.PI * 2);
-            ctx.fill();
-            ctx.strokeStyle = '#fff';
-            ctx.lineWidth = 2;
-            ctx.stroke();
-
-            ctx.fillStyle = friend1.color;
-            ctx.beginPath();
-            ctx.arc(friend1.px, friend1.py, radius, 0, Math.PI * 2);
-            ctx.fill();
-            ctx.strokeStyle = '#fff';
-            ctx.lineWidth = 2;
-            ctx.stroke();
+            // Ami 1 (Bleu) : Court, puis tombe
+            let state1 = 'stand';
+            if (simPhase === 'running') state1 = 'run';
+            if (simPhase === 'falling' || simPhase === 'finished') state1 = 'fall';
+            drawStickman(friend1.px, friend1.py, friend1.color, state1, runTimer);
         }
 
         function drawSplash(timestamp) {
-            if(!isFinished) return;
-            
+            if (simPhase !== 'finished') return;
             if (splashTime === 0) splashTime = timestamp;
-            let progress = (timestamp - splashTime) / 1000;
+            let progress = (timestamp - splashTime) / 800; // Durée de l'effet 800ms
 
-            draw();
+            draw(); // Redessiner la scène finale sous l'effet
 
             if (progress < 1) {
-                let radius = 10 + (progress * 40);
-                let alpha = 1 - progress;
-
-                ctx.lineWidth = 3;
+                let radius = 10 + (progress * 45);
+                let alpha = 1 - Math.pow(progress, 2);
                 
-                ctx.strokeStyle = `rgba(255, 255, 255, ${alpha})`;
+                ctx.lineWidth = 4;
                 ctx.beginPath();
                 ctx.arc(friend1.px, GROUND_Y, radius, 0, Math.PI, true);
-                ctx.stroke();
+                ctx.arc(friend2.px, GROUND_Y, radius, 0, Math.PI, true);
 
-                ctx.beginPath();
-                ctx.arc(friend2.px - 10, GROUND_Y, radius, 0, Math.PI, true);
+                switch(currentPlanet) {
+                    case 'earth': ctx.strokeStyle = `rgba(255, 255, 255, ${alpha})`; break;
+                    case 'moon': ctx.strokeStyle = `rgba(161, 161, 170, ${alpha})`; ctx.lineWidth = 6; break; // Poussière
+                    case 'mars': ctx.strokeStyle = `rgba(185, 28, 28, ${alpha})`; ctx.lineWidth = 6; break; // Sable rouge
+                    case 'jupiter': ctx.strokeStyle = `rgba(217, 119, 6, ${alpha})`; ctx.lineWidth = 8; break; // Gaz épais
+                }
                 ctx.stroke();
 
                 requestAnimationFrame(drawSplash);
