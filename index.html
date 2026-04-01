@@ -460,6 +460,7 @@
             drawEnvironment();
             drawTrails();
             drawCharacters();
+            drawDataLabels(); // Ajout des étiquettes de données
         }
 
         function drawEnvironment() {
@@ -617,6 +618,45 @@
             if (simPhase === 'running') state1 = 'run';
             if (simPhase === 'falling' || simPhase === 'finished') state1 = 'fall';
             drawStickman(friend1.px, friend1.py, friend1.color, state1, runTimer);
+        }
+
+        // Fonction pour dessiner les étiquettes de temps et hauteur
+        function drawDataLabels() {
+            const tStr = (simPhase === 'ready' || simPhase === 'running') ? "0.00" : time.toFixed(2);
+            const hStr = Math.max(0, friend1.y).toFixed(2);
+            const textToDisplay = `t: ${tStr}s | h: ${hStr}m`;
+
+            // On dessine l'étiquette de l'Ami 2 un peu plus haut pour éviter le chevauchement avec l'Ami 1 qui passe devant
+            drawLabelBox(textToDisplay, friend2.px, friend2.py - 55, friend2.color);
+            drawLabelBox(textToDisplay, friend1.px, friend1.py - 35, friend1.color);
+        }
+
+        function drawLabelBox(text, x, y, color) {
+            ctx.save();
+            ctx.font = 'bold 11px sans-serif';
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
+            
+            const textWidth = ctx.measureText(text).width;
+            const padding = 4;
+            const boxWidth = textWidth + padding * 2;
+            const boxHeight = 18;
+            const boxX = x - boxWidth / 2;
+            const boxY = y - boxHeight / 2;
+            
+            // Fond semi-transparent
+            ctx.fillStyle = 'rgba(255, 255, 255, 0.85)';
+            ctx.fillRect(boxX, boxY, boxWidth, boxHeight);
+            
+            // Bordure colorée
+            ctx.strokeStyle = color;
+            ctx.lineWidth = 1.5;
+            ctx.strokeRect(boxX, boxY, boxWidth, boxHeight);
+
+            // Texte
+            ctx.fillStyle = color;
+            ctx.fillText(text, x, y);
+            ctx.restore();
         }
 
         function drawSplash(timestamp) {
