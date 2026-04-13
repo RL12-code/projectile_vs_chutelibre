@@ -626,9 +626,9 @@
             const hStr = Math.max(0, friend1.y).toFixed(2);
             const textToDisplay = `t: ${tStr}s | h: ${hStr}m`;
 
-            // On dessine l'étiquette de l'Ami 2 un peu plus haut pour éviter le chevauchement avec l'Ami 1 qui passe devant
-            drawLabelBox(textToDisplay, friend2.px, friend2.py - 55, friend2.color);
-            drawLabelBox(textToDisplay, friend1.px, friend1.py - 35, friend1.color);
+            // On dessine les étiquettes exactement à la même hauteur
+            drawLabelBox(textToDisplay, friend2.px, friend2.py - 45, friend2.color);
+            drawLabelBox(textToDisplay, friend1.px, friend1.py - 45, friend1.color);
         }
 
         function drawLabelBox(text, x, y, color) {
