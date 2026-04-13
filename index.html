@@ -90,7 +90,26 @@
 
             <!-- Tableau de prises de données -->
             <div class="bg-white p-6 rounded-xl shadow-lg border border-slate-100 flex flex-col h-72">
-                <h2 class="text-lg font-bold text-slate-800 mb-4 border-b pb-2">Données de chute</h2>
+                <div class="flex justify-between items-center mb-4 border-b pb-2">
+                    <h2 class="text-lg font-bold text-slate-800">Données de chute</h2>
+                    <div class="relative group">
+                        <button id="exportSheetsBtn" class="text-xs bg-green-600 hover:bg-green-700 text-white font-medium py-1.5 px-3 rounded shadow-sm flex items-center gap-1.5 transition-colors">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="8" y1="13" x2="16" y2="13"></line><line x1="8" y1="17" x2="16" y2="17"></line><polyline points="10 9 9 9 8 9"></polyline></svg>
+                            <span>Vers Sheets</span>
+                        </button>
+                        <!-- Pop-up d'instructions -->
+                        <div class="absolute bottom-full right-0 mb-2 w-64 p-3 bg-slate-800 text-white text-xs rounded-lg shadow-xl opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-300 z-50 pointer-events-none transform translate-y-1 group-hover:translate-y-0">
+                            <p class="font-bold text-green-400 mb-2 text-sm border-b border-slate-600 pb-1">Comment exporter :</p>
+                            <ol class="list-decimal ml-4 space-y-1.5 text-slate-200">
+                                <li>Cliquez sur ce bouton.</li>
+                                <li>Un document <strong>Google Sheets</strong> s'ouvrira automatiquement.</li>
+                                <li>Sélectionnez la première case et faites <kbd class="bg-slate-700 px-1.5 py-0.5 rounded text-white font-mono shadow-sm">Ctrl+V</kbd> (ou Cmd+V) pour coller les données !</li>
+                            </ol>
+                            <!-- Petite flèche vers le bas -->
+                            <div class="absolute top-full right-8 -mt-1 border-4 border-transparent border-t-slate-800"></div>
+                        </div>
+                    </div>
+                </div>
                 <div class="flex-1 overflow-y-auto pr-2">
                     <table class="w-full text-sm text-center">
                         <thead class="sticky top-0 bg-white shadow-sm text-slate-500 text-xs uppercase z-10">
@@ -189,6 +208,7 @@
         const dataTableBody = document.getElementById('dataTableBody');
         const startBtn = document.getElementById('startBtn');
         const resetBtn = document.getElementById('resetBtn');
+        const exportSheetsBtn = document.getElementById('exportSheetsBtn');
         const conclusionMessage = document.getElementById('conclusionMessage');
         const impactTitle = document.getElementById('impactTitle');
         const finalTime = document.getElementById('finalTime');
@@ -252,6 +272,46 @@
 
         startBtn.addEventListener('click', toggleSim);
         resetBtn.addEventListener('click', resetSim);
+        exportSheetsBtn.addEventListener('click', exportToGoogleSheets);
+
+        function exportToGoogleSheets() {
+            // Utilisation du format TSV (Tab-Separated Values) qui se colle parfaitement dans Sheets
+            let tsvContent = "Temps (s)\tH. Personne 1 (m)\tH. Personne 2 (m)\n";
+
+            // Récupérer les données depuis le tableau HTML
+            const rows = document.querySelectorAll("#dataTableBody tr");
+            rows.forEach(row => {
+                const cols = row.querySelectorAll("td");
+                const rowData = Array.from(cols).map(col => col.innerText).join("\t"); // Séparé par des tabulations
+                tsvContent += rowData + "\n";
+            });
+
+            // Technique de copie pour garantir la compatibilité (iframe / navigateurs)
+            const textArea = document.createElement("textarea");
+            textArea.value = tsvContent;
+            document.body.appendChild(textArea);
+            textArea.select();
+            
+            try {
+                document.execCommand('copy');
+                
+                // Feedback visuel sur le bouton
+                const originalHtml = exportSheetsBtn.innerHTML;
+                exportSheetsBtn.innerHTML = "✓ Copié ! (Faites Ctrl+V)";
+                exportSheetsBtn.classList.replace('bg-green-600', 'bg-emerald-500');
+                
+                setTimeout(() => {
+                    exportSheetsBtn.innerHTML = originalHtml;
+                    exportSheetsBtn.classList.replace('bg-emerald-500', 'bg-green-600');
+                }, 4000);
+                
+                // Ouvre un nouveau Google Sheets vide dans un nouvel onglet
+                window.open('https://sheets.new', '_blank');
+            } catch (err) {
+                console.error('Erreur lors de la copie', err);
+            }
+            document.body.removeChild(textArea);
+        }
 
         function toggleSim() {
             if (simPhase === 'finished') resetSim();
